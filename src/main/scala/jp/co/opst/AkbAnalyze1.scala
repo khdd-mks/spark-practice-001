@@ -4,10 +4,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.SparkConf
 
-import cats.data.Xor.Right
-
-import com.enjapan.knp._
-import com.enjapan.knp.models.Bunsetsu
+import com.atilika.kuromoji.ipadic._
 
 import java.text.Normalizer
 
@@ -15,7 +12,6 @@ import java.text.Normalizer
 object AkbAnalyzer001 {
   def main(args: Array[String]) {
     def normalize(s:String) = Normalizer.normalize(s, Normalizer.Form.NFKC)
-    def bunsetsuName(os:Option[String]) = os.map{_.split('+').map{_.split('/').head}.mkString}
     val conf = new SparkConf().setAppName("Practice 001")
     val sc = new SparkContext(conf)
     val workDir = args.head
@@ -34,36 +30,22 @@ object AkbAnalyzer001 {
                   .collectAsMap
     // データから(対象人物名, 評価値合計, 辞書に存在した単語数)を生成
     val baseDatas = sc.textFile(s"${workDir}/data.txt")
+                      .filter(!_.isEmpty)
                       .map { s =>
-                        KNP.withServerBackedClient { knp =>
-                           val parsed = knp.parse(s)
-                           parsed.map { blist =>
-                             def makeParent(b:Bunsetsu):List[String] = {
-                               @annotation.tailrec
-                               def inner(innerB:Bunsetsu, l:List[String]):List[String] = 
-                                 innerB.parent match {
-                                   case Some(parent) => inner(parent, bunsetsuName(parent.repName).getOrElse("文節") :: l)
-                                   case None => l
-                                 }
-
-                               inner(b, List.empty)
-                             }
-                             // 文節リストから人名と判断されたものを抽出する
-                             val personBunsetsus = blist.bunsetsuList.filter{ _.features.contains("人名") }
-                             // 人名リストから人名を抽出
-                             val personNames = personBunsetsus.map{ b => bunsetsuName(b.repName) }
-                                                              .headOption.flatten.getOrElse("AKBメンバー")
-                             // 人名リストから親を抽出
-                             val parents = personBunsetsus.map{_.parent.map{makeParent(_)}}
-                                                          .collect { case Some(l) => l }
-                                                          .flatten
-                             // 人名と親をマージ
-                             (personNames, parents)
-                           }
-                       }
-                    }.collect { case Right(a) => a }
+                                  import scala.collection.JavaConverters._
+                                  val tokenizer = new Tokenizer
+                                  val tokenList = tokenizer.tokenize(s).iterator.asScala.toList
+                                  // 人物名を特定
+                                  val (nameTokens, otherTokens) = tokenList.partition { token =>
+                                                      token.getAllFeaturesArray.contains("人名") &&
+                                                        token.getSurface != "ちゃん" &&
+                                                        token.getSurface != "さん"
+                                                                  }
+                                  // (人物名, 他の単語のリスト)を生成
+                                  (normalize(nameTokens.map{_.getSurface}.mkString), otherTokens.map{_.getSurface}.map(normalize))
+                       }.cache
     val datas = baseDatas
-                  .collect { case (name, l) if (l.length >= 1) => (name, l.map(normalize)) }
+                  .filter { case (name, l) => l.length >= 1 }
                   .map { case (name, words) => 
                              val (points, hits) = words.map { s =>
                                                                 val oHit = dic01.get(s).orElse(dic02.get(s))
