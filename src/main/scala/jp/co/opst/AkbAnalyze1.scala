@@ -33,11 +33,16 @@ object AkbAnalyzer001 {
                       .filter(!_.isEmpty)
                       .map { s =>
                                   import scala.collection.JavaConverters._
-                                  val tokenizer = new Tokenizer
+                                  val tokenizer = {
+                                    val builder = new Tokenizer.Builder()
+                                    builder.userDictionary(s"${workDir}/akbdic.txt")
+                                    builder.build
+                                  }
                                   val tokenList = tokenizer.tokenize(s).iterator.asScala.toList
                                   // 人物名を特定
                                   val (nameTokens, otherTokens) = tokenList.partition { token =>
-                                                      token.getAllFeaturesArray.contains("人名") &&
+                                                      (token.getAllFeaturesArray.contains("人名") ||
+                                                        token.getAllFeaturesArray.contains("カスタム人名")) &&
                                                         token.getSurface != "ちゃん" &&
                                                         token.getSurface != "さん"
                                                                   }

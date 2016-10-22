@@ -1,17 +1,21 @@
-# build
-sbt clean compile package
+# build (fat jar にしないとspark-submitに渡した時に実行時エラーとなるためassembly sbt-assemblyプラグイン使用)
+sbt clean compile assembly
 
 # execute
-SPARK_HOME/bin/spark-submit --class jp.co.opst.Practice001 target/scala-2.11/practice-001_2.11-1.0.jar /home/hogeuser/workspace/
+SPARK_HOME/bin/spark-submit --class jp.co.opst.AkbAnalyzer001 target/scala-2.11/practice-001_2.11-1.0.jar /home/hogeuser/workspace/
 
 # kyokusei_dic_999.txt
 http://www.cl.ecei.tohoku.ac.jp/index.php?Open%20Resources%2FJapanese%20Sentiment%20Polarity%20Dictionary
 (http://www.cl.ecei.tohoku.ac.jp/resources/sent_lex/wago.121808.pn)
 (http://www.cl.ecei.tohoku.ac.jp/resources/sent_lex/pn.csv.m3.120408.trim)
 
+# akbdic.txt (AKBメンバーの固有名詞とかをkuromojiで正しく解析するのに必要)
+指原莉乃,指原 莉乃,サシハラ リノ,カスタム人名
+
 # data.txt
-A子 1番 かわいい
-B子 かわいい
-C子 おしゃれ あどけなさ かわいい 
-D子 おばさん きつさ
+AKB48総選挙でHKT大躍進の中、唯一指原莉乃だけが票を減らした
+指原莉乃の順位が発表された時、鳥肌が立った
+NMB三田麻央の泣き顔が不細工だと話題になった
+小嶋陽菜がAKBを辞めると思っていたが違った
+
 
